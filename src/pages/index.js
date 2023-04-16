@@ -37,7 +37,7 @@ export default function Home() {
   const [canGenerate, setCanGenerate] = useState(false);
 
   const handleGeneration = async () => {
-    if (!palette || !uploadedImgUrl || !colorNames) {
+    if (!palette || !uploadedImgUrl) {
       return;
     }
 
@@ -75,40 +75,54 @@ export default function Home() {
 
       // Post ChatGPT API to generate the character description
 
-      const content = `
-        You are a character designer GPT, Here are some of the good example of stable diffusion model prompt 
+      // const content = `
+      //   You are a character designer GPT, Here are some of the good example of stable diffusion model prompt
 
-        - (masterpiece)+, (best quality)+, (ultra highres)+, (photorealistic)+, (8k, RAW photo)+, (soft focus)+, 1 woman, posh, (sharp focus)+, (korean)+, (american)+, detailed beautiful face, black hair, (detailed open blazer)+, tie, beautiful white shiny humid skin, smiling
-        - A highly detailed and realistic full-body photo from a fantasy movie where a yountg girl is wearing a white strapless tube top, has bright blue hair, is laughing, is drinking wine in a medieval tavern with peasants in the background, cinematic, 8k, blue volumetric
-        - Beautiful anime painting of solarpunk summer chill day, by tim okamura, victor nizovtsev, greg rutkowski, noah bradley. trending on artstation, 8k, masterpiece, graffiti paint, fine detail, full of color, intricate detail, golden ratio illustration Steps: 50, 
+      //   - (masterpiece)+, (best quality)+, (ultra highres)+, (photorealistic)+, (8k, RAW photo)+, (soft focus)+, 1 woman, posh, (sharp focus)+, (korean)+, (american)+, detailed beautiful face, black hair, (detailed open blazer)+, tie, beautiful white shiny humid skin, smiling
+      //   - A highly detailed and realistic full-body photo from a fantasy movie where a yountg girl is wearing a white strapless tube top, has bright blue hair, is laughing, is drinking wine in a medieval tavern with peasants in the background, cinematic, 8k, blue volumetric
+      //   - Beautiful anime painting of solarpunk summer chill day, by tim okamura, victor nizovtsev, greg rutkowski, noah bradley. trending on artstation, 8k, masterpiece, graffiti paint, fine detail, full of color, intricate detail, golden ratio illustration Steps: 50,
 
-        Please come up with a stable diffusion model prompt under 200 words that cover following keywords
+      //   Please come up with a stable diffusion model prompt under 200 words that cover following keywords
 
-        - The character need to have elements that related to ${captions}
-        - The character need to have makeup that use following colors ${colorNames.toString()}, please pick the color that suit your needs.
-        - The style is animate painting        
+      //   The prompt should only have keywords, not a full sentence
+
+      //   - The main character is a woman
+      //   - The character need to have makeup that use following colors ${palette.toString()}, please pick the color that suit your needs.
+      //   - Pick random country
+      //   - The style is realistic human portrait
+      //   - Resolution is RAW 8K
+      //   - highly detailed
+      //   - cinematic lighting
+      //   - creative makeup
+      // `;
+
+      // setIsGeneratingCharacterDesign(true);
+      // const gptCompletion = await openai.createChatCompletion({
+      //   model: "gpt-3.5-turbo",
+      //   messages: [
+      //     {
+      //       role: "user",
+      //       content,
+      //     },
+      //   ],
+      // });
+
+      // if (gptCompletion.status !== 200) {
+      //   setCharacterDesignGenerationError(
+      //     "Failed to generate character description"
+      //   );
+      //   setIsGeneratingCharacterDesign(false);
+      //   return;
+      // }
+
+      // const characterDesign = gptCompletion.data.choices[0].message.content;
+
+      const characterDesign = `
+        ((woman)), (realistic human portrait), (RAW 8K), (highly detailed), 
+        (cinematic lighting), (creative makeup), (makeup that use following colors ${palette.toString()}, 
+        (creative makeup), (detailed gorgeous face), (breathtaking, vibrant)
       `;
 
-      setIsGeneratingCharacterDesign(true);
-      const gptCompletion = await openai.createChatCompletion({
-        model: "gpt-3.5-turbo",
-        messages: [
-          {
-            role: "user",
-            content,
-          },
-        ],
-      });
-
-      if (gptCompletion.status !== 200) {
-        setCharacterDesignGenerationError(
-          "Failed to generate character description"
-        );
-        setIsGeneratingCharacterDesign(false);
-        return;
-      }
-
-      const characterDesign = gptCompletion.data.choices[0].message.content;
       setCharacterDesign(characterDesign);
       setIsGeneratingCharacterDesign(false);
 
@@ -249,7 +263,7 @@ export default function Home() {
             )}
           </div>
           <div className="flex flex-col gap-y-2">
-            <p className="text-xl font-semibold">Character Design</p>
+            <p className="text-xl font-semibold">Character Design Prompt</p>
             {characterDesign ? (
               <p className="text-base font-normal px-4 py-2 border rounded-lg">
                 {characterDesign}
