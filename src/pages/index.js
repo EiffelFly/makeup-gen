@@ -41,6 +41,10 @@ export default function Home() {
       return;
     }
 
+    setCaptions(null);
+    setCharacterDesign(null);
+    setMakeupImg(null);
+
     const reader = new FileReader();
     reader.readAsDataURL(uploadedImgFile);
     reader.onload = async function () {
@@ -95,8 +99,6 @@ export default function Home() {
           },
         ],
       });
-
-      console.log(gptCompletion.status);
 
       if (gptCompletion.status !== 200) {
         setCharacterDesignGenerationError(
