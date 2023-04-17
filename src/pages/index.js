@@ -1,15 +1,8 @@
 import { Inter } from "next/font/google";
 import { useState } from "react";
 import ColorThief from "colorthief";
-import { Configuration, OpenAIApi } from "openai";
 
 const inter = Inter({ subsets: ["latin"] });
-
-const configuration = new Configuration({
-  organization: process.env.NEXT_PUBLIC_OPENAI_ORG,
-  apiKey: process.env.NEXT_PUBLIC_OPENAI_KEY,
-});
-const openai = new OpenAIApi(configuration);
 
 export default function Home() {
   const [uploadedImgFile, setUploadedImgFile] = useState(null);
@@ -24,10 +17,6 @@ export default function Home() {
   const [captionsGenerationError, setCaptionsGenerationError] = useState(null);
 
   const [characterDesign, setCharacterDesign] = useState(null);
-  const [isGeneratingCharacterDesign, setIsGeneratingCharacterDesign] =
-    useState(false);
-  const [characterDesignGenerationError, setCharacterDesignGenerationError] =
-    useState(null);
 
   const [makeupImg, setMakeupImg] = useState(null);
   const [isGeneratingMakeupImg, setIsGeneratingMakeupImg] = useState(false);
@@ -37,6 +26,7 @@ export default function Home() {
   const [canGenerate, setCanGenerate] = useState(false);
 
   const handleGeneration = async () => {
+    // We don't want to generate if we don't have the palette and URL
     if (!palette || !uploadedImgUrl) {
       return;
     }
@@ -45,13 +35,15 @@ export default function Home() {
     setCharacterDesign(null);
     setMakeupImg(null);
 
+    // (4) To get the base64 string, you need to load the image with Fi
     const reader = new FileReader();
     reader.readAsDataURL(uploadedImgFile);
     reader.onload = async function () {
       console.log("begin generation");
-      // Post hugging face image to caption api to get the caption
+
+      // (5) Post hugging face image to caption api to get the caption
       setIsGeneratingCaptions(true);
-      const response = await fetch(
+      const generateCaption = await fetch(
         process.env.NEXT_PUBLIC_IMAGE_TO_CAPTION_API_URL,
         {
           method: "POST",
@@ -62,81 +54,35 @@ export default function Home() {
         }
       );
 
-      if (!response.ok) {
+      if (!generateCaption.ok) {
         setCaptionsGenerationError("Failed to generate captions");
         setIsGeneratingCaptions(false);
         return;
       }
 
-      const data = await response.json();
+      const data = await generateCaption.json();
       const captions = data.data[0];
       setCaptions(captions);
       setIsGeneratingCaptions(false);
 
-      // Post ChatGPT API to generate the character description
-
-      // const content = `
-      //   You are a character designer GPT, Here are some of the good example of stable diffusion model prompt
-
-      //   - (masterpiece)+, (best quality)+, (ultra highres)+, (photorealistic)+, (8k, RAW photo)+, (soft focus)+, 1 woman, posh, (sharp focus)+, (korean)+, (american)+, detailed beautiful face, black hair, (detailed open blazer)+, tie, beautiful white shiny humid skin, smiling
-      //   - A highly detailed and realistic full-body photo from a fantasy movie where a yountg girl is wearing a white strapless tube top, has bright blue hair, is laughing, is drinking wine in a medieval tavern with peasants in the background, cinematic, 8k, blue volumetric
-      //   - Beautiful anime painting of solarpunk summer chill day, by tim okamura, victor nizovtsev, greg rutkowski, noah bradley. trending on artstation, 8k, masterpiece, graffiti paint, fine detail, full of color, intricate detail, golden ratio illustration Steps: 50,
-
-      //   Please come up with a stable diffusion model prompt under 200 words that cover following keywords
-
-      //   The prompt should only have keywords, not a full sentence
-
-      //   - The main character is a woman
-      //   - The character need to have makeup that use following colors ${palette.toString()}, please pick the color that suit your needs.
-      //   - Pick random country
-      //   - The style is realistic human portrait
-      //   - Resolution is RAW 8K
-      //   - highly detailed
-      //   - cinematic lighting
-      //   - creative makeup
-      // `;
-
-      // setIsGeneratingCharacterDesign(true);
-      // const gptCompletion = await openai.createChatCompletion({
-      //   model: "gpt-3.5-turbo",
-      //   messages: [
-      //     {
-      //       role: "user",
-      //       content,
-      //     },
-      //   ],
-      // });
-
-      // if (gptCompletion.status !== 200) {
-      //   setCharacterDesignGenerationError(
-      //     "Failed to generate character description"
-      //   );
-      //   setIsGeneratingCharacterDesign(false);
-      //   return;
-      // }
-
-      // const characterDesign = gptCompletion.data.choices[0].message.content;
-
+      // (6) Here is how we write the prompt
       const characterDesign = `
-        ((woman)), (realistic human portrait), (RAW 8K), (highly detailed), 
-        (cinematic lighting), (creative makeup), (makeup that use following colors ${palette.toString()}, 
-        (creative makeup), (detailed gorgeous face), (breathtaking, vibrant)
+        A front face makeup look with a vibe of ${captions}; colours of ${palette.toString()}
+        single image, 8k RAW
       `;
 
       setCharacterDesign(characterDesign);
-      setIsGeneratingCharacterDesign(false);
 
-      // Call HG stable diffusion model to generate image using character description
-
-      console.log("generating makeup image");
-
+      // (7) Call HG stable diffusion model to generate image using character description
       setIsGeneratingMakeupImg(true);
       const generateMakeupImg = await fetch(
         process.env.NEXT_PUBLIC_STABLE_DIFFUSION_API_URL,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ inputs: characterDesign }),
+          body: JSON.stringify({
+            data: [characterDesign],
+          }),
         }
       );
 
@@ -146,8 +92,10 @@ export default function Home() {
         return;
       }
 
-      const makeupImgBlob = await generateMakeupImg.blob();
-      setMakeupImg(URL.createObjectURL(makeupImgBlob));
+      const generateMakeupImgData = await generateMakeupImg.json();
+
+      console.log(generateMakeupImgData);
+      setMakeupImg(generateMakeupImgData.data[0]);
       setIsGeneratingMakeupImg(false);
     };
   };
@@ -163,11 +111,15 @@ export default function Home() {
               className="h-[360px] m-auto"
               src={uploadedImgUrl}
               onLoad={async (img) => {
+                // (2) We load the user uploaded image here and the we retrieve the color
+                // palette from it using color thief. We transfer the rgba color to hex color
+                // We then call the color api to get the color names
+
                 setIsLoadingColors(true);
                 const colorThief = new ColorThief();
 
                 // Get the palette from the image, the second argument is the number of colors to return
-                const palette = colorThief.getPalette(img.currentTarget, 8);
+                const palette = colorThief.getPalette(img.currentTarget, 3);
 
                 // Convert the RGB values to hex
                 let hexPalette = [];
@@ -199,6 +151,7 @@ export default function Home() {
               }}
             />
           ) : (
+            // (1) This is where we upload the image, we get the FILE and URL from them
             <>
               <label
                 className="flex w-full border rounded-lg h-[360px]"
@@ -239,6 +192,9 @@ export default function Home() {
               </p>
             )}
           </div>
+          {/* 
+            (2.5) We can only generate the captions when we have the color names
+          */}
           <button
             disabled={canGenerate ? false : true}
             onClick={handleGeneration}
@@ -264,19 +220,9 @@ export default function Home() {
           </div>
           <div className="flex flex-col gap-y-2">
             <p className="text-xl font-semibold">Character Design Prompt</p>
-            {characterDesign ? (
-              <p className="text-base font-normal px-4 py-2 border rounded-lg">
-                {characterDesign}
-              </p>
-            ) : (
-              <span className="px-4 py-2 border rounded-lg h-[42px]">
-                {characterDesignGenerationError
-                  ? characterDesignGenerationError
-                  : isGeneratingCharacterDesign
-                  ? "Generating..."
-                  : null}
-              </span>
-            )}
+            <p className="text-base font-normal px-4 py-2 border rounded-lg">
+              {characterDesign}
+            </p>
           </div>
           <div className="flex flex-col gap-y-2">
             <p className="text-xl font-semibold">Makeup Image</p>
